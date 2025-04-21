@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+
+FROM="/autograder/submission"
+TO="/autograder/source"
+RESULTS_DEST="/autograder/results/results.json"
+
+cd "$TO"
+
+FILES=('BarberShop.java' 'Customer.java' 'PriorityCustomerQueue.java')
+
+# Copy the student's code into the autograder directory. Make sure
+# student has the right package name in their file and that it's in
+# the right place
+for FILE in "${FILES[@]}"; do
+    cp "${FROM}/${FILE}" "${TO}/src/main/java/com/gradescope/solution/"
+done
+
+# Compile the student's code with autograder code
+mkdir -p classes
+# Find all java files in src directory
+java_files=$(find src -name "*.java")
+javac -cp lib/*:. -d classes $java_files
+
+# Run the autograder code
+java -cp classes/:lib/* com.gradescope.solution.tests.RunTests > "$RESULTS_DEST"
