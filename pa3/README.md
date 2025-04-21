@@ -1,10 +1,10 @@
 # GradeScope PA3 
-[Gradescope Documentation](https://gradescope-autograders.readthedocs.io/en/latest/)
-[Template code on Github](https://github.com/gradescope/autograder_samples/tree/master/java)
+- [Gradescope Documentation](https://gradescope-autograders.readthedocs.io/en/latest/)
+- [Template code on Github](https://github.com/gradescope/autograder_samples/tree/master/java)
 
 ## PA3 Description
 
-[Sleeping Barber](https://en.wikipedia.org/wiki/Sleeping_barber_problem) Implementation
+[Sleeping Barber](https://en.wikipedia.org/wiki/Sleeping_barber_problem) Implementation.  
 Input files are `BarberShop.java`, `Customer.java`, and `PriorityCustomerQueue.java`.
 
 ## Explanation of Dependencies
@@ -17,7 +17,7 @@ Input files are `BarberShop.java`, `Customer.java`, and `PriorityCustomerQueue.j
 
 ## setup.sh
 
-Sets up OpenJDK 11.
+Sets up OpenJDK 11.  
 
 Note: Installing JDK11 takes a few minutes, so building the image takes
 a while. We may later provide base images to speed this up.
