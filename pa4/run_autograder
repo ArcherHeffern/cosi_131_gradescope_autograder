@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Expects test.c in top level
+
+BASE_DIR="/autograder"
+FROM="/autograder/submission"
+TO="/autograder/source"
+RESULTS_DEST="/autograder/results/results.json"
+
+cd "$TO"
+ls
+
+cp "${FROM}/paging.c" "${BASE_DIR}"
+
+gcc test.c readFile.c "paging.c" -o student_program
+
+# Run the autograder code
+./student_program > "$RESULTS_DEST"
