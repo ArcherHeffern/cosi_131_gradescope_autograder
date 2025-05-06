@@ -3,17 +3,30 @@
 #include <stdlib.h>
 #include <string.h>
 
+typedef struct Test Test;
+void append_test_result(struct Test *test_result);
+
 // https://gradescope-autograders.readthedocs.io/en/latest/specs/
+#ifdef __APPLE__
+	#define DEV
+#endif
+
+#ifdef DEV
+	#define RESULTS_DEST "./results.json"
+#else
+	#define RESULTS_DEST "/autograder/results/results.json"
+#endif
 
 static struct Test** test_results = NULL;
 static int test_results_size = 0;
-static int test_results_size = 0;
+static int test_results_capacity = 0;
 
 struct ResultsExtraData {};
 struct TestExtraData {};
 
 
 enum Status {
+	NOT_YET_RUN,
 	PASSED,
 	FAILED,
 };
@@ -92,20 +105,20 @@ struct Test {
 
 char* test_to_string(struct Test *test) {
 	// TODO: Does not yet handle optional fields
-	char** s = NULL;
-	asprintf(s, "{\n"
-		"\"score\": %d,\n"
-		"\"max_score\": %d,\n"
-		"\"status\": \"%s\",\n"
-		// "\"name\": \"Your name here\",\n"
-		// "\"name_format\": \"text\",\n"
-		"\"number\": \"%.1f\",\n"
-		"\"output\": \"%s\",\n"
-		"\"output_format\": \"text\",\n"
-		// "\"tags\": [\"tag1\", \"tag2\", \"tag3\"],\n"
-		"\"visibility\": \"%s\",\n"
-		"\"extra_data\": {}\n"
-		"}\n", 
+	char* s = NULL;
+	asprintf(&s, "\t\t{\n"
+		"\t\t\t\"score\": %.1f,\n"
+		"\t\t\t\"max_score\": %.1f,\n"
+		"\t\t\t\"status\": \"%s\",\n"
+		//\t\t\t "\"name\": \"Your name here\",\n"
+		//\t\t\t "\"name_format\": \"text\",\n"
+		"\t\t\t\"number\": \"%.1f\",\n"
+		"\t\t\t\"output\": \"%s\",\n"
+		"\t\t\t\"output_format\": \"text\",\n"
+		//\t\t\t "\"tags\": [\"tag1\", \"tag2\", \"tag3\"],\n"
+		"\t\t\t\"visibility\": \"%s\",\n"
+		"\t\t\t\"extra_data\": {}\n"
+		"\t\t}\n", 
 		test->maybe_score,
 		test->maybe_max_score,
 		status_to_string(test->maybe_status),
@@ -157,11 +170,11 @@ char* results_to_string() {
 	}
 	char* tests_string = test_to_string(test_results[0]);
 	for (int i = 1; i < test_results_size; i++) {
-		asprintf(&tests_string, "%s,\n%s");
+		asprintf(&tests_string, "%s,\n%s", tests_string, test_to_string(test_results[i]));
 	}
 	char* json_string = NULL;
 	asprintf(
-		json_string,
+		&json_string,
 		"{\n"
 		// "  \"score\": 44.0,\n"
 		// "  \"execution_time\": 136,\n"
@@ -173,9 +186,9 @@ char* results_to_string() {
 		"  \"stdout_visibility\": \"visible\",\n"
 		"  \"extra_data\": {},\n"
 		"  \"tests\": [\n"
-		"  		%s\n"
+		"%s\n"
 		"  ]\n"
-		"};",
+		"}",
 		tests_string
 	);
 	return json_string;
@@ -194,9 +207,12 @@ void write_to_file(char *path, char *string) {
 		EXIT("fopen");
 	}
 	int objects_written = 1;
-	size_t ok = fwrite(string, strlen(string), objects_written, f);
-	if (ok != objects_written) {
-		EXIT("fwrite");
+	int string_length = strlen(string);
+	if (string_length != 0) {
+		size_t ok = fwrite(string, string_length * sizeof(char), objects_written, f);
+		if (ok != objects_written) {
+			EXIT("fwrite");
+		}
 	}
 	fclose(f); // I don't care if this succeeds or not
 }
@@ -213,14 +229,66 @@ if (!strcmp(s1,s2)) { \
 // ============
 // Testing 
 // ============
-int run(int max_score, int visibility, FailReason (*test)()) {
 
+struct Test* create_not_yet_run_test(float max_score, enum Visibility visibility) {
+	// Must fill out the following during test runtime
+	// - maybe_score
+	// - maybe_status
+	// - maybe_output
+	static int test_number = 1;
+	struct Test *test = malloc(sizeof(struct Test));
+	test->maybe_score = 0;
+	test->maybe_max_score = max_score;
+	test->maybe_status = NOT_YET_RUN;
+	test->maybe_name = "";
+	test->maybe_name_format = TEXT;
+	test->maybe_number = test_number++;
+	test->maybe_output = NULL;
+	test->maybe_tags = NULL;
+	test->maybe_visibility = visibility;
+	test->maybe_extra_data = NULL;
+
+	return test;
 }
 
-int test() {
+void run_test(float max_score, enum Visibility visibility, FailReason (*test_fn)()) {
+	struct Test *test = create_not_yet_run_test(max_score, visibility);
+	FailReason fail_reason = test_fn();
+	// TODO: Setup capturing output
+	if (fail_reason) {
+		test->maybe_score = 0;
+		test->maybe_status = FAILED;
+	} else {
+		test->maybe_score = max_score;
+		test->maybe_status = PASSED;
+	}
+	// TODO: Tear Down capturing output
+	test->maybe_output = "";
+
+	append_test_result(test);
+}
+
+void append_test_result(struct Test *test_result) {
+	if (test_results_size == test_results_capacity) {
+		test_results_size *= 2;
+		struct Test **new_test_results = malloc(sizeof(struct Test*) * test_results_capacity);
+		for (int i = 0; i < test_results_size; i++) {
+			new_test_results[i] = test_results[i];
+		}
+		free(test_results);
+		test_results = new_test_results;
+	}
+	test_results[test_results_size++] = test_result;
+}
+
+FailReason test() {
+	return NULL;
 }
 
 int main() {
-	char *results = results_to_string();
-	write_to_file("tmp", results);
+
+	run_test(2, VISIBLE, test);
+	run_test(2, VISIBLE, test);
+
+	write_to_file(RESULTS_DEST, results_to_string()); // Required
 }

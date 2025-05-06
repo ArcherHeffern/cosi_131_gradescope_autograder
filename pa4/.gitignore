@@ -2,3 +2,7 @@ pa4/
 solution/
 *.zip
 student_program
+
+.vscode/
+a.out*
+results.json
