@@ -344,6 +344,7 @@ void __run_test(float max_score, enum Visibility visibility, char* test_name, Fa
 void append_test_result(struct Test *test_result) {
 	if (test_results_size == test_results_capacity) {
 		test_results_capacity *= 2;
+		if (test_results_capacity == 0) test_results_capacity = 4;
 		struct Test **new_test_results = malloc(sizeof(struct Test*) * test_results_capacity);
 		for (int i = 0; i < test_results_size; i++) {
 			new_test_results[i] = test_results[i];
