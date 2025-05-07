@@ -59,7 +59,7 @@ FailReason test_student() {
 	return NULL;
 }
 int main() {
-	RUN_TEST(2, VISIBLE, test_student);
+	RUN_TEST(1, VISIBLE, test_student);
 	write_to_file(RESULTS_DEST, result_to_string()); // Required
 }
 
