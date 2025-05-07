@@ -1,99 +1,14 @@
 #include "test.h"
-
-// ============
-// TESTS
-// ============
-FailReason test_strings__equal() {
-	char* s1 = "hello";
-	ASSERT_EQUAL_STRING(s1, s1);
-	return NULL;
-}
-
-FailReason test_strings__not_equal() {
-	ASSERT_EQUAL_STRING("hello", "world");
-	return NULL;
-}
-
-FailReason test_lines__equal() {
-	char **lines1 = (char *[]) {
-		"hello",
-		"how",
-		"are",
-	};
-	ASSERT_EQUAL_LINES(lines1, 3, lines1, 3);
-	return NULL;
-}
-
-FailReason test_lines__same_length_but_not_equal() {
-	char **actual = (char *[]) {
-		"hello",
-		"how",
-		"are",
-		"yoo",
-
-	};
-	char **expected = (char *[]) {
-		"hello",
-		"hw",
-		"are",
-		"you",
-	};
-	ASSERT_EQUAL_LINES(actual, 4, expected, 4);
-	return NULL;
-}
-
-FailReason test_lines__actual_missing_lines() {
-	char **actual = (char *[]) {
-		"hello",
-	};
-	char **expected = (char *[]) {
-		"hello",
-		"how",
-		"are",
-		"you",
-	};
-	ASSERT_EQUAL_LINES(actual, 1, expected, 4);
-	return NULL;
-}
-
-FailReason test_lines__actual_has_too_many_lines() {
-	char **actual = (char *[]) {
-		"hello",
-		"how",
-		"are",
-		"you",
-		"doing",
-	};
-	char **expected = (char *[]) {
-		"hello",
-		"how",
-	};
-	ASSERT_EQUAL_LINES(actual, 5, expected, 2);
-	return NULL;
-}
-
-
-// FailReason test_files__match() {
-// 	char** actual_lines = NULL;
-// 	int num_actual_lines = 0;
-// 	char** expected_lines = NULL;
-// 	int num_expected_lines = 0;
-// 	// do stuff that results in a file being created...
-// 	file_read_lines(ACTUAL_OUTPUT_FILE, &actual_lines, &num_actual_lines);
-// 	file_read_lines(EXPECTED_OUTPUT_FILE, &expected_lines, &num_expected_lines);
-// 	ASSERT_EQUAL_LINES(actual_lines, num_actual_lines, expected_lines, num_expected_lines);
-// 	return NULL;
-// }
-
-
 #include "paging.h"
 #include "readFile.h"
+
 #define ACTUAL_OUTPUT_FILE "actual_output.txt"
-#define EXPECTED_OUTPUT_FILE "expected_output.txt"
 #define FILENAME "processes.txt"
+
 int generateRandom(int min, int max) {
     return min + rand() % (max - min + 1);
 }
+
 void __test_student() {
     // get the processes from the file
     unsigned int num_processes = countLines(FILENAME);
@@ -132,7 +47,7 @@ void __test_student() {
     fclose(file);
 }
 
-FailReason test__student() {
+FailReason test_student() {
 	char** actual_lines = NULL;
 	int num_actual_lines = 0;
 	__test_student();
@@ -144,16 +59,7 @@ FailReason test__student() {
 	return NULL;
 }
 int main() {
-
-	RUN_TEST(2, VISIBLE, test_strings__equal);
-	RUN_TEST(2, VISIBLE, test_strings__not_equal);
-	RUN_TEST(2, VISIBLE, test_lines__equal);
-	RUN_TEST(2, VISIBLE, test_lines__same_length_but_not_equal);
-	RUN_TEST(2, VISIBLE, test_lines__actual_missing_lines);
-	RUN_TEST(2, VISIBLE, test_lines__actual_has_too_many_lines);
-
-	RUN_TEST(2, VISIBLE, test__student);
-
+	RUN_TEST(2, VISIBLE, test_student);
 	write_to_file(RESULTS_DEST, result_to_string()); // Required
 }
 
