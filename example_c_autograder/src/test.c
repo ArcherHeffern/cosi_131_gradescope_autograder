@@ -1,4 +1,5 @@
 #include "test.h"
+#include "square.h"
 
 // ============
 // TESTS
@@ -72,6 +73,12 @@ FailReason test_lines__actual_has_too_many_lines() {
 	return NULL;
 }
 
+FailReason test_square_area() {
+	struct Square *r = create_square(5);
+	ASSERT_EQUAL_INT(square_area(r), 25);
+	destroy_square(r);
+	return NULL;
+}
 
 // FailReason test_files__match() {
 // 	char** actual_lines = NULL;
@@ -85,66 +92,7 @@ FailReason test_lines__actual_has_too_many_lines() {
 // 	return NULL;
 // }
 
-
-#include "paging.h"
-#include "readFile.h"
-#define ACTUAL_OUTPUT_FILE "actual_output.txt"
-#define EXPECTED_OUTPUT_FILE "expected_output.txt"
-#define FILENAME "processes.txt"
-int generateRandom(int min, int max) {
-    return min + rand() % (max - min + 1);
-}
-void __test_student() {
-    // get the processes from the file
-    unsigned int num_processes = countLines(FILENAME);
-    char **lines = (char **)malloc(num_processes * sizeof(char *));
-    unsigned int *line_sizes = (unsigned int *)malloc(num_processes * sizeof(unsigned int));
-    struct PCB *processes = (struct PCB *)malloc(num_processes * sizeof(struct PCB));
-
-    readLines(FILENAME, lines, line_sizes, num_processes);
-
-    BuildPageTable(processes, num_processes, lines, line_sizes);
-
-    struct TLB *tlb = (struct TLB *)malloc(sizeof(struct TLB));
-    // Initialize TLB
-    initTLB(tlb);
-
-    FILE *file = fopen(ACTUAL_OUTPUT_FILE, "w");
-    int error = 0;
-
-    // Simulate memory accesses
-    for (unsigned int i = 0; i < 100000; i++) {
-        // Randomly select a process
-        unsigned int process_index = generateRandom(0, num_processes - 1);
-
-        // randomly select an address
-        unsigned int address = generateRandom(0, processes[process_index].limit-1);
-        char data = getDataTLB(processes, tlb, process_index, address, i);
-
-        if (data == lines[process_index][address]){
-            fprintf(file, "Process %d accessing address %d correctly\n", process_index, address);
-        }
-        else {
-            fprintf(file, "Process %d failed accessing address %d. Expected %c Read %c\n", process_index, address, data, lines[process_index][address]);
-            error++;
-        }
-    }
-    fclose(file);
-}
-
-FailReason test__student() {
-	char** actual_lines = NULL;
-	int num_actual_lines = 0;
-	__test_student();
-	file_read_lines(ACTUAL_OUTPUT_FILE, &actual_lines, &num_actual_lines);
-	for (int i = 0; i < num_actual_lines; i++) {
-		ASSERT_LINE_CONTAINS(actual_lines[i], "correctly");
-	}
-
-	return NULL;
-}
 int main() {
-
 	RUN_TEST(2, VISIBLE, test_strings__equal);
 	RUN_TEST(2, VISIBLE, test_strings__not_equal);
 	RUN_TEST(2, VISIBLE, test_lines__equal);
@@ -152,7 +100,7 @@ int main() {
 	RUN_TEST(2, VISIBLE, test_lines__actual_missing_lines);
 	RUN_TEST(2, VISIBLE, test_lines__actual_has_too_many_lines);
 
-	RUN_TEST(2, VISIBLE, test__student);
+	RUN_TEST(2, VISIBLE, test_square_area);
 
 	write_to_file(RESULTS_DEST, result_to_string()); // Required
 }
@@ -162,6 +110,9 @@ int main() {
 // Internal: Do not touch!
 // ========================
 // ========================
+static struct Test** test_results = NULL;
+static int test_results_size = 0;
+static int test_results_capacity = 0;
 
 // ============
 // To string
@@ -397,7 +348,7 @@ void append_test_result(struct Test *test_result) {
 		for (int i = 0; i < test_results_size; i++) {
 			new_test_results[i] = test_results[i];
 		}
-		if (test_results != NULL) 
+		if (test_results != NULL)
 			free(test_results);
 		test_results = new_test_results;
 	}

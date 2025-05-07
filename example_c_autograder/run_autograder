@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+FROM="/autograder/submission"
+TO="/autograder/source/src"
+
+FILES=("square.c")
+
+for FILE in "${FILES[@]}"; do
+	cp "${FROM}/${FILE}" "$TO"
+done
+
+
+cd "$TO" || echo "Failed to cd into ${TO}"
+gcc -std=gnu99 test.c "${FILES[@]}" -o student_program -lm || { echo "Compilation failed"; exit 1; }
+
+# Run the autograder code
+./student_program 
