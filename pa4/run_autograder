@@ -4,14 +4,15 @@
 BASE_DIR="/autograder"
 FROM="/autograder/submission"
 TO="/autograder/source"
+SRC="/autograder/source/src"
 RESULTS_DEST="/autograder/results/results.json"
 
-cd "$TO"
-ls
+mkdir -p "$SRC"
+cp "${FROM}/paging.c" "$SRC"
 
-cp "${FROM}/paging.c" "${BASE_DIR}"
-
-gcc test.c readFile.c "paging.c" -o student_program
+# gcc test.c readFile.c "paging.c" -o student_program
+cd "$SRC" || echo "Failed to cd into ${SRC}"
+gcc -std=gnu99 test.c -o student_program
 
 # Run the autograder code
 ./student_program > "$RESULTS_DEST"
