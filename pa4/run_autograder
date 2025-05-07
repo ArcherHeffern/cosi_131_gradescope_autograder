@@ -10,9 +10,8 @@ RESULTS_DEST="/autograder/results/results.json"
 mkdir -p "$SRC"
 cp "${FROM}/paging.c" "$SRC"
 
-# gcc test.c readFile.c "paging.c" -o student_program
 cd "$SRC" || echo "Failed to cd into ${SRC}"
-gcc -std=gnu99 test.c -o student_program
+gcc -std=gnu99 test.c paging.c readFile.c -o student_program -lm
 
 # Run the autograder code
-./student_program > "$RESULTS_DEST"
+./student_program 

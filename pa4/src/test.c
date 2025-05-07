@@ -1,37 +1,171 @@
-#define _GNU_SOURCE
-#include <stdio.h>
-#include <stdbool.h>
-#include <stdlib.h>
-#include <string.h>
+#include "test.h"
 
-typedef struct Test Test;
-void append_test_result(struct Test *test_result);
+// ============
+// TESTS
+// ============
+FailReason test_strings__equal() {
+	char* s1 = "hello";
+	ASSERT_EQUAL_STRING(s1, s1);
+	return NULL;
+}
 
-// https://gradescope-autograders.readthedocs.io/en/latest/specs/
-#ifdef __APPLE__
-	#define DEV
-#endif
+FailReason test_strings__not_equal() {
+	ASSERT_EQUAL_STRING("hello", "world");
+	return NULL;
+}
 
-#ifdef DEV
-	#define RESULTS_DEST "./results.json"
-#else
-	#define RESULTS_DEST "/autograder/results/results.json"
-#endif
+FailReason test_lines__equal() {
+	char **lines1 = (char *[]) {
+		"hello",
+		"how",
+		"are",
+	};
+	ASSERT_EQUAL_LINES(lines1, 3, lines1, 3);
+	return NULL;
+}
 
-static struct Test** test_results = NULL;
-static int test_results_size = 0;
-static int test_results_capacity = 0;
+FailReason test_lines__same_length_but_not_equal() {
+	char **actual = (char *[]) {
+		"hello",
+		"how",
+		"are",
+		"yoo",
 
-struct ResultsExtraData {};
-struct TestExtraData {};
+	};
+	char **expected = (char *[]) {
+		"hello",
+		"hw",
+		"are",
+		"you",
+	};
+	ASSERT_EQUAL_LINES(actual, 4, expected, 4);
+	return NULL;
+}
+
+FailReason test_lines__actual_missing_lines() {
+	char **actual = (char *[]) {
+		"hello",
+	};
+	char **expected = (char *[]) {
+		"hello",
+		"how",
+		"are",
+		"you",
+	};
+	ASSERT_EQUAL_LINES(actual, 1, expected, 4);
+	return NULL;
+}
+
+FailReason test_lines__actual_has_too_many_lines() {
+	char **actual = (char *[]) {
+		"hello",
+		"how",
+		"are",
+		"you",
+		"doing",
+	};
+	char **expected = (char *[]) {
+		"hello",
+		"how",
+	};
+	ASSERT_EQUAL_LINES(actual, 5, expected, 2);
+	return NULL;
+}
 
 
-enum Status {
-	NOT_YET_RUN,
-	PASSED,
-	FAILED,
-};
+// FailReason test_files__match() {
+// 	char** actual_lines = NULL;
+// 	int num_actual_lines = 0;
+// 	char** expected_lines = NULL;
+// 	int num_expected_lines = 0;
+// 	// do stuff that results in a file being created...
+// 	file_read_lines(ACTUAL_OUTPUT_FILE, &actual_lines, &num_actual_lines);
+// 	file_read_lines(EXPECTED_OUTPUT_FILE, &expected_lines, &num_expected_lines);
+// 	ASSERT_EQUAL_LINES(actual_lines, num_actual_lines, expected_lines, num_expected_lines);
+// 	return NULL;
+// }
 
+
+#include "paging.h"
+#include "readFile.h"
+#define ACTUAL_OUTPUT_FILE "actual_output.txt"
+#define EXPECTED_OUTPUT_FILE "expected_output.txt"
+#define FILENAME "processes.txt"
+int generateRandom(int min, int max) {
+    return min + rand() % (max - min + 1);
+}
+void __test_student() {
+    // get the processes from the file
+    unsigned int num_processes = countLines(FILENAME);
+    char **lines = (char **)malloc(num_processes * sizeof(char *));
+    unsigned int *line_sizes = (unsigned int *)malloc(num_processes * sizeof(unsigned int));
+    struct PCB *processes = (struct PCB *)malloc(num_processes * sizeof(struct PCB));
+
+    readLines(FILENAME, lines, line_sizes, num_processes);
+
+    BuildPageTable(processes, num_processes, lines, line_sizes);
+
+    struct TLB *tlb = (struct TLB *)malloc(sizeof(struct TLB));
+    // Initialize TLB
+    initTLB(tlb);
+
+    FILE *file = fopen(ACTUAL_OUTPUT_FILE, "w");
+    int error = 0;
+
+    // Simulate memory accesses
+    for (unsigned int i = 0; i < 100000; i++) {
+        // Randomly select a process
+        unsigned int process_index = generateRandom(0, num_processes - 1);
+
+        // randomly select an address
+        unsigned int address = generateRandom(0, processes[process_index].limit-1);
+        char data = getDataTLB(processes, tlb, process_index, address, i);
+
+        if (data == lines[process_index][address]){
+            fprintf(file, "Process %d accessing address %d correctly\n", process_index, address);
+        }
+        else {
+            fprintf(file, "Process %d failed accessing address %d. Expected %c Read %c\n", process_index, address, data, lines[process_index][address]);
+            error++;
+        }
+    }
+    fclose(file);
+}
+
+FailReason test__student() {
+	char** actual_lines = NULL;
+	int num_actual_lines = 0;
+	__test_student();
+	file_read_lines(ACTUAL_OUTPUT_FILE, &actual_lines, &num_actual_lines);
+	for (int i = 0; i < num_actual_lines; i++) {
+		ASSERT_LINE_CONTAINS(actual_lines[i], "correctly");
+	}
+
+	return NULL;
+}
+int main() {
+
+	RUN_TEST(2, VISIBLE, test_strings__equal);
+	RUN_TEST(2, VISIBLE, test_strings__not_equal);
+	RUN_TEST(2, VISIBLE, test_lines__equal);
+	RUN_TEST(2, VISIBLE, test_lines__same_length_but_not_equal);
+	RUN_TEST(2, VISIBLE, test_lines__actual_missing_lines);
+	RUN_TEST(2, VISIBLE, test_lines__actual_has_too_many_lines);
+
+	RUN_TEST(2, VISIBLE, test__student);
+
+	write_to_file(RESULTS_DEST, result_to_string()); // Required
+}
+
+// ========================
+// ========================
+// Internal: Do not touch!
+// ========================
+// ========================
+
+// ============
+// To string
+// ============
 char* status_to_string(enum Status status) {
 	switch (status) {
 	case PASSED:
@@ -42,13 +176,6 @@ char* status_to_string(enum Status status) {
 		return "?";
 	}
 }
-
-enum Visibility {
-	VISIBLE,
-	HIDDEN,
-	AFTER_DUE_DATE,
-	AFTER_PUBLISHED,
-};
 
 char* visibility_to_string(enum Visibility visibility) {
 	switch (visibility) {
@@ -64,14 +191,6 @@ char* visibility_to_string(enum Visibility visibility) {
 		return "?";
 	}
 }
-
-enum OutputFormat {
-	TEXT,
-	HTML,
-	SIMPLE_FORMAT,
-	MD,
-	ANSI,
-};
 
 char* output_format_to_string(enum OutputFormat output_format) {
 	switch (output_format) {
@@ -89,20 +208,6 @@ char* output_format_to_string(enum OutputFormat output_format) {
 		return "?";
 	}
 }
-
-struct Test {
-	float maybe_score; // Required if no score on `struct Results`
-	float maybe_max_score;
-	enum Status maybe_status;
-	char *maybe_name;
-	enum OutputFormat maybe_name_format;
-	float maybe_number; // 0 if not exists
-	char *maybe_output;
-	enum OutputFormat maybe_output_format;
-	char **maybe_tags;
-	enum Visibility maybe_visibility;
-	struct TestExtraData *maybe_extra_data;
-};
 
 char* test_to_string(struct Test *test) {
 	// TODO: Does not yet handle optional fields
@@ -135,36 +240,7 @@ char* test_to_string(struct Test *test) {
 	return s;
 };
 
-// struct Result {
-// 	float maybe_score; // Required if not on each test case
-// 	float maybe_execution_time;
-// 	char *maybe_output;
-// 	enum OutputFormat maybe_output_format;
-// 	enum OutputFormat maybe_test_output_format;
-// 	enum OutputFormat maybe_test_name_format;
-// 	char *maybe_visibility;
-// 	enum Visibility maybe_stdout_visibility;
-// 	struct ExtraData *maybe_extra_data;
-// 	struct Test *maybe_tests; // Required if no top level scoring
-// };
-
-// struct Result* results_create() {
-// 	struct Result *result = malloc(sizeof(struct Result));
-// 	memset(result, 0, sizeof(struct Result));
-// 	result->maybe_score = 0;
-// 	result->maybe_execution_time = 0;
-// 	result->maybe_output = NULL;
-// 	result->maybe_output_format = SIMPLE_FORMAT;
-// 	result->maybe_test_output_format = TEXT;
-// 	result->maybe_test_name_format = TEXT;
-// 	result->maybe_visibility = AFTER_DUE_DATE;
-// 	result->maybe_stdout_visibility = VISIBLE;
-// 	result->maybe_extra_data = NULL;
-// 	result->maybe_tests = NULL;
-// 	return result;
-// }
-
-char* results_to_string() {
+char* result_to_string() {
 	// TODO: Take result object as input
 	if (test_results_size == 0) {
 		return "";
@@ -195,11 +271,46 @@ char* results_to_string() {
 	return json_string;
 }
 
+// ===========
+// Internal Utils
+// ===========
 
-// ===========
-// Utils
-// ===========
-#define EXIT(reason) do { perror(reason); exit(1); } while (0)
+char* escape_as_json(char* s) {
+	if (s == NULL) {
+		return strdup("");
+	}
+	char* escaped = malloc(strlen(s) * 2 + 1); // Allocate enough space for worst-case scenario
+	if (!escaped) {
+		EXIT("malloc");
+	}
+	char* dest = escaped;
+	while (*s) {
+		switch (*s) {
+			case '\\':
+				*dest++ = '\\';
+				*dest++ = '\\';
+				break;
+			case '\"':
+				*dest++ = '\\';
+				*dest++ = '\"';
+				break;
+			case '\n':
+				*dest++ = '\\';
+				*dest++ = 'n';
+				break;
+			case '\r':
+				*dest++ = '\\';
+				*dest++ = 'r';
+				break;
+			default:
+				*dest++ = *s;
+				break;
+		}
+		s++;
+	}
+	*dest = '\0';
+	return escaped;
+}
 
 int min_int(int i1, int i2) {
 	return i1 > i2 ? i2: i1;
@@ -207,6 +318,10 @@ int min_int(int i1, int i2) {
 
 int max_int(int i1, int i2) {
 	return i1 > i2 ? i1: i2;
+}
+
+bool file_exists(char *path) {
+	return access(path, F_OK) == 0;
 }
 
 void write_to_file(char *path, char *string) {
@@ -257,73 +372,36 @@ void file_read_lines(char *path, char ***lines, int *count_lines) {
 	fclose(file);
 }
 
-typedef char* FailReason;
-
 // ============
-// ASSERTIONS LIBRARY
+// Assertion Library Internals
 // ============
+void __run_test(float max_score, enum Visibility visibility, char* test_name, FailReason (*test_fn)()) {
+	struct Test *test = create_not_yet_run_test(max_score, visibility, test_name);
+	FailReason fail_reason = test_fn();
+	if (fail_reason) {
+		test->maybe_score = 0;
+		test->maybe_status = FAILED;
+		test->maybe_output = escape_as_json(fail_reason);
+	} else {
+		test->maybe_score = max_score;
+		test->maybe_status = PASSED;
+	}
 
-// TODO: Convert to function. And wrap with macro to get auto returning behavior on failures. 
-#define ASSERT_EQUAL_STRING(s1, s2) 									\
-do { 																	\
-if (strcmp((s1),(s2)) != 0) { 													\
-	char *out = NULL; 													\
-	asprintf(&out, "'%s' does not equal '%s'", (s1), (s2)); 				\
-	return out; 														\
-}																		\
-} while (0)
+	append_test_result(test);
+}
 
-#define ASSERT_EQUAL_LINES(actual_lines, actual_lines_count, expected_lines, expected_lines_count) do { \
-	char *error = NULL; \
-	size_t error_size = 0; \
-	int min_lines = min_int(actual_lines_count, expected_lines_count); \
-	for (int i = 0; i < min_lines; i++) { \
-		if (strcmp(actual_lines[i], expected_lines[i]) != 0) { \
-			char *line_error = NULL; \
-			asprintf(&line_error, "Expected '%s' on line %d, but found '%s'.\n", expected_lines[i], i + 1, actual_lines[i]); \
-			if (line_error) { \
-				size_t len = strlen(line_error); \
-				error = realloc(error, error_size + len + 1); \
-				memcpy(error + error_size, line_error, len); \
-				error_size += len; \
-				error[error_size] = '\0'; \
-				free(line_error); \
-			} \
-		} \
-	} \
-	if (actual_lines_count > expected_lines_count) { \
-		for (int i = expected_lines_count; i < actual_lines_count; i++) { \
-			char *line_error = NULL; \
-			asprintf(&line_error, "Extra line in actual output at line %d: '%s'.\n", i + 1, actual_lines[i]); \
-			if (line_error) { \
-				size_t len = strlen(line_error); \
-				error = realloc(error, error_size + len + 1); \
-				memcpy(error + error_size, line_error, len); \
-				error_size += len; \
-				error[error_size] = '\0'; \
-				free(line_error); \
-			} \
-		} \
-	} else if (expected_lines_count > actual_lines_count) { \
-		for (int i = actual_lines_count; i < expected_lines_count; i++) { \
-			char *line_error = NULL; \
-			asprintf(&line_error, "Missing line in actual output at line %d: '%s'.\n", i + 1, expected_lines[i]); \
-			if (line_error) { \
-				size_t len = strlen(line_error); \
-				error = realloc(error, error_size + len + 1); \
-				memcpy(error + error_size, line_error, len); \
-				error_size += len; \
-				error[error_size] = '\0'; \
-				free(line_error); \
-			} \
-		} \
-	} \
-	if (error) return error; \
-} while (0)
-
-// ============
-// Testing 
-// ============
+void append_test_result(struct Test *test_result) {
+	if (test_results_size == test_results_capacity) {
+		test_results_size *= 2;
+		struct Test **new_test_results = malloc(sizeof(struct Test*) * test_results_capacity);
+		for (int i = 0; i < test_results_size; i++) {
+			new_test_results[i] = test_results[i];
+		}
+		free(test_results);
+		test_results = new_test_results;
+	}
+	test_results[test_results_size++] = test_result;
+}
 
 struct Test* create_not_yet_run_test(float max_score, enum Visibility visibility, char* test_name) {
 	// Must fill out the following during test runtime
@@ -346,121 +424,50 @@ struct Test* create_not_yet_run_test(float max_score, enum Visibility visibility
 	return test;
 }
 
-#define RUN_TEST(max_score, visibility, test_fn) \
-do { \
-	__run_test(max_score, visibility, #test_fn, test_fn); \
-} while (0) 
-
-void __run_test(float max_score, enum Visibility visibility, char* test_name, FailReason (*test_fn)()) {
-	struct Test *test = create_not_yet_run_test(max_score, visibility, test_name);
-	FailReason fail_reason = test_fn();
-	if (fail_reason) {
-		test->maybe_score = 0;
-		test->maybe_status = FAILED;
-		test->maybe_output = fail_reason;
-	} else {
-		test->maybe_score = max_score;
-		test->maybe_status = PASSED;
-	}
-
-	append_test_result(test);
-}
-
-void append_test_result(struct Test *test_result) {
-	if (test_results_size == test_results_capacity) {
-		test_results_size *= 2;
-		struct Test **new_test_results = malloc(sizeof(struct Test*) * test_results_capacity);
-		for (int i = 0; i < test_results_size; i++) {
-			new_test_results[i] = test_results[i];
+char* __assert_equal_lines(char** actual_lines, int actual_lines_count, char** expected_lines, int expected_lines_count) {
+	char *error = NULL;
+	size_t error_size = 0;
+	int min_lines = min_int(actual_lines_count, expected_lines_count);
+	for (int i = 0; i < min_lines; i++) {
+		if (strcmp(actual_lines[i], expected_lines[i]) != 0) {
+			char *line_error = NULL;
+			asprintf(&line_error, "Expected '%s' on line %d, but found '%s'.\n", expected_lines[i], i + 1, actual_lines[i]);
+			if (line_error) {
+				size_t len = strlen(line_error);
+				error = realloc(error, error_size + len + 1);
+				memcpy(error + error_size, line_error, len);
+				error_size += len;
+				error[error_size] = '\0';
+				free(line_error);
+			}
 		}
-		free(test_results);
-		test_results = new_test_results;
 	}
-	test_results[test_results_size++] = test_result;
-}
-
-// ============
-// TESTS
-// ============
-FailReason test_strings__equal() {
-	char* s1 = "hello";
-	ASSERT_EQUAL_STRING(s1, s1);
-	return NULL;
-}
-
-FailReason test_strings__not_equal() {
-	ASSERT_EQUAL_STRING("hello", "world");
-	return NULL;
-}
-
-FailReason test_lines__equal() {
-	char **lines1 = (char *[]) {
-		"hello",
-		"how",
-		"are"
-	};
-	ASSERT_EQUAL_LINES(lines1, 3, lines1, 3);
-	return NULL;
-}
-
-FailReason test_lines__same_length_but_not_equal() {
-	char **actual = (char *[]) {
-		"hello",
-		"how",
-		"are",
-		"yoo"
-
-	};
-	char **expected = (char *[]) {
-		"hello",
-		"hw",
-		"are"
-		"you"
-	};
-	ASSERT_EQUAL_LINES(actual, 4, expected, 4);
-	return NULL;
-}
-
-FailReason test_lines__actual_missing_lines() {
-	char **actual = (char *[]) {
-		"hello",
-	};
-	char **expected = (char *[]) {
-		"hello",
-		"how",
-		"are",
-		"you"
-	};
-	ASSERT_EQUAL_LINES(actual, 1, expected, 4);
-	return NULL;
-}
-
-FailReason test_lines__actual_has_too_many_lines() {
-	char **actual = (char *[]) {
-		"hello",
-		"how",
-		"are",
-		"you",
-		"doing"
-	};
-	char **expected = (char *[]) {
-		"hello",
-		"how",
-	};
-	ASSERT_EQUAL_LINES(actual, 5, expected, 2);
-	return NULL;
-}
-
-int main() {
-
-	RUN_TEST(2, VISIBLE, test_strings__equal);
-	RUN_TEST(2, VISIBLE, test_strings__not_equal);
-	RUN_TEST(2, VISIBLE, test_lines__equal);
-	RUN_TEST(2, VISIBLE, test_lines__same_length_but_not_equal);
-	RUN_TEST(2, VISIBLE, test_lines__actual_missing_lines);
-	RUN_TEST(2, VISIBLE, test_lines__actual_has_too_many_lines);
-
-	char* results = results_to_string();
-	printf("%s\n", results);
-	write_to_file(RESULTS_DEST, results); // Required
+	if (actual_lines_count > expected_lines_count) {
+		for (int i = expected_lines_count; i < actual_lines_count; i++) {
+			char *line_error = NULL;
+			asprintf(&line_error, "Extra line in actual output at line %d: '%s'.\n", i + 1, actual_lines[i]);
+			if (line_error) {
+				size_t len = strlen(line_error);
+				error = realloc(error, error_size + len + 1);
+				memcpy(error + error_size, line_error, len);
+				error_size += len;
+				error[error_size] = '\0';
+				free(line_error);
+			}
+		}
+	} else if (expected_lines_count > actual_lines_count) {
+		for (int i = actual_lines_count; i < expected_lines_count; i++) {
+			char *line_error = NULL;
+			asprintf(&line_error, "Missing line in actual output at line %d: '%s'.\n", i + 1, expected_lines[i]);
+			if (line_error) {
+				size_t len = strlen(line_error);
+				error = realloc(error, error_size + len + 1);
+				memcpy(error + error_size, line_error, len);
+				error_size += len;
+				error[error_size] = '\0';
+				free(line_error);
+			}
+		}
+	}
+	return error;
 }
